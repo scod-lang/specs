@@ -70,7 +70,7 @@ format R : Word =
 ,  0 -> funct
 }
 
-format I : Word = {
+format I : Word =
 { 26 -> opcode
 , 21 -> rs
 , 16 -> rt
@@ -84,13 +84,14 @@ format J : Word =
 
 
 buffer JumpAddr : J -> Word =
-    [ (PC + 4)[31..28], address, 0b00 ]
+    let adjustedPC = PC + 4 in
+      [ adjustedPC([31..28]), address, 0b00 ]
 
 buffer BranchAddr : I -> Word =
-    [ immediate[15].repeat(14), immediate, 0b00 ]
+    [ immediate(15).repeat(14), immediate, 0b00 ]
 
 buffer SignExtImm : I -> Word =
-    [ immediate[15].repeat(16), immediate ]
+    [ immediate(15).repeat(16), immediate ]
 
 buffer ZeroExtImm : I -> Word =
     [ 0x0000, immediate ]
@@ -114,11 +115,11 @@ syntax =
 { :: mnemonic rd "," rs "," rt ; // e.g. "add $1, $2, $3"
 }
 
-[ description = "Add Immediate" ]
+[ description "Add Immediate" ]
 instruction addi : I = {
     let lhs = GPR(rs) in
     let rhs = SignExtImm in
-    let res = lhs {+} rhs in {
+    let res = lhs (+) rhs in {
         GPR(rt) := res.value
         CSR(Overflow) := res.carry
     }
@@ -131,7 +132,7 @@ syntax =
 { :: mnemonic rt "," rs "," immediate ; // e.g. "addi $1, $2, 100"
 }
 
-[ description = "Add Immediate Unsigned" ]
+[ description "Add Immediate Unsigned" ]
 instruction addiu : I = {
     GPR(rt) := GPR(rs) + SignExtImm
     PC := PC + 4
@@ -143,7 +144,7 @@ syntax =
 { @addi
 }
 
-[ description = "Add Unsigned" ]
+[ description "Add Unsigned" ]
 instruction addu : R = {
     GPR(rd) := GPR(rs) + GPR(rt)
     PC := PC + 4
@@ -156,9 +157,10 @@ syntax =
 { @add
 }
 
-[ description = "And" ]
-instruction and : R = {
-    GPR(rd) := GPR(rs) & GPR(rt)
+[ description "And" ]
+[ mnemonic "and" ]
+instruction and_ : R = {
+    GPR(rd) := GPR(rs) and GPR(rt)
     PC := PC + 4
 }
 decoding =
@@ -169,9 +171,9 @@ syntax =
 { @add
 }
 
-[ description = "And Immediate" ]
+[ description "And Immediate" ]
 instruction andi : I = {
-    GPR(rt) := GPR(rs) & ZeroExtImm
+    GPR(rt) := GPR(rs) and ZeroExtImm
     PC := PC + 4
 }
 decoding =
@@ -181,7 +183,7 @@ syntax =
 { @addi
 }
 
-[ description = "Branch On Equal" ]
+[ description "Branch On Equal" ]
 instruction beq : I = {
     if GPR(rs) = GPR(rt) then
         PC := PC + 4 + BranchAddr
@@ -195,7 +197,7 @@ syntax =
 { :: mnemonic rs "," rt "," immediate ; // e.g. "beq $1, $2, 100"
 }
 
-[ description = "Branch On Not Equal" ]
+[ description "Branch On Not Equal" ]
 instruction bne : I = {
     if GPR(rs) != GPR(rt) then
         PC := PC + 4 + BranchAddr
@@ -209,7 +211,7 @@ syntax =
 { @beq
 }
 
-[ description = "Jump" ]
+[ description "Jump" ]
 instruction j : J = {
     PC := JumpAddr
 }
@@ -221,7 +223,7 @@ syntax =
 }
 
 
-[ description = "Jump And Link" ]
+[ description "Jump And Link" ]
 instruction jal : J = {
     GPR(31) := PC + 8
     PC := JumpAddr
@@ -233,7 +235,7 @@ syntax =
 { @j
 }
 
-[ description = "Jump Register" ]
+[ description "Jump Register" ]
 instruction jr : R = {
     PC := GPR(rs)
 }
@@ -245,9 +247,10 @@ syntax =
 { :: mnemonic rs ; // e.g. "jr 31"
 }
 
-[ description = "Load Byte Unsigned" ]
+[ description "Load Byte Unsigned" ]
 instruction lbu : I = {
-    GPR(rt) := [ 0x0000'00, MEM( GPR(rs) + SignExtImm )[7..0] ]
+    let value = MEM( GPR(rs) + SignExtImm ) in
+        GPR(rt) := [ 0x0000'00, value([7..0]) ]
     PC := PC + 4
 }
 decoding =
@@ -257,9 +260,10 @@ syntax =
 { :: mnemonic rt "," immediate "(" rs ")" ; // e.g. "lw $1, 100($2)"
 }
 
-[ description = "Load Halfword Unsigned" ]
+[ description "Load Halfword Unsigned" ]
 instruction lhu : I = {
-    GPR(rt) := [ 0x0000, MEM( GPR(rs) + SignExtImm )[15..0] ]
+    let value = MEM( GPR(rs) + SignExtImm ) in
+        GPR(rt) := [ 0x0000, value([15..0]) ]
     PC := PC + 4
 }
 decoding =
@@ -269,7 +273,7 @@ syntax =
 { @lbu
 }
 
-[ description = "Load Upper Immediate" ]
+[ description "Load Upper Immediate" ]
 instruction lui : I = {
     GPR(rt) := { immediate, 0x0000 }
     PC := PC + 4
@@ -278,10 +282,10 @@ decoding =
 { opcode : 0b00'1111 // 0x0f // 15
 }
 syntax =
-{ :: mnemonic rt "," immediate // e.g. "lui $1, 100"
+{ :: mnemonic rt "," immediate ; // e.g. "lui $1, 100"
 }
 
-[ description = "Load Word" ]
+[ description "Load Word" ]
 instruction lw : I = {
     GPR(rt) := MEM( GPR(rs) + SignExtImm )
     PC := PC + 4
@@ -293,7 +297,7 @@ syntax =
 { @lbu
 }
 
-[ description = "Nor (Not Or)" ]
+[ description "Nor (Not Or)" ]
 instruction nor : R = {
     GPR(rd) := not( GPR(rs) or GPR(rt) )
     PC := PC + 4
@@ -306,9 +310,10 @@ syntax =
 { @add
 }
 
-[ description = "Or" ]
-instruction or : R = {
-    GPR(rd) := GPR(rs) | GPR(rt)
+[ description "Or" ]
+[ mnemonic "or" ]
+instruction or_ : R = {
+    GPR(rd) := GPR(rs) or GPR(rt)
     PC := PC + 4
 }
 decoding =
@@ -319,9 +324,9 @@ syntax =
 { @add
 }
 
-[ description = "Or Immediate" ]
+[ description "Or Immediate" ]
 instruction ori : I = {
-    GPR(rt) := GPR(rs) | ZeroExtImm
+    GPR(rt) := GPR(rs) or ZeroExtImm
     PC := PC + 4
 }
 decoding =
@@ -331,7 +336,7 @@ syntax =
 { @addi
 }
 
-[ description = "Set Less Than" ]
+[ description "Set Less Than" ]
 instruction slt : R = {
     GPR(rd) := if GPR(rs) < GPR(rt) then 1 else 0
     PC := PC + 4
@@ -344,7 +349,7 @@ syntax =
 { @add
 }
 
-[ description = "Set Less Than Immediate" ]
+[ description "Set Less Than Immediate" ]
 instruction slti : I = {
     GPR(rt) := if GPR(rs) < SignExtImm then 1 else 0
     PC := PC + 4
@@ -356,7 +361,7 @@ syntax =
 { @addi
 }
 
-[ description = "Set Less Than Immediate Unsigned" ]
+[ description "Set Less Than Immediate Unsigned" ]
 instruction sltiu : I = {
     let lhs = { 0b0, GPR(rs) } in
     let rhs = { 0b0, SignExtImm } in
@@ -370,7 +375,7 @@ syntax =
 { @addi
 }
 
-[ description = "Set Less Than Unsigned" ]
+[ description "Set Less Than Unsigned" ]
 instruction sltu : R = {
     let lhs = [ 0b0, GPR(rs) ] in
     let rhs = [ 0b0, GRP(rt) ] in
@@ -385,7 +390,7 @@ syntax =
 { @add
 }
 
-[ description = "Shift Left Logical" ]
+[ description "Shift Left Logical" ]
 instruction sll : R = {
     GPR(rd) := GPR(rt) << shamt
     PC := PC + 4
@@ -398,7 +403,7 @@ syntax =
 { :: mnemonic rd "," rt "," shamt ; // e.g. "sll $1, $2, 10"
 }
 
-[ description = "Shift Right Logical" ]
+[ description "Shift Right Logical" ]
 instruction srl : R = {
     GPR(rd) := GPR(rt) >> shamt
     PC := PC + 4
@@ -411,9 +416,11 @@ syntax =
 { @sll
 }
 
-[ description = "Store Byte" ]
+[ description "Store Byte" ]
 instruction sb : I = {
-    MEM( GPR(rs) + SignExtImm )[7..0] := GPR(rt)[7..0]
+    let loc = MEM( GPR(rs) + SignExtImm ) in
+    let val = GPR(rt) in
+        loc([7..0]) := val([7..0])
     PC := PC + 4
 }
 decoding =
@@ -423,9 +430,11 @@ syntax =
 { @lbu
 }
 
-[ description = "Store Halfword" ]
+[ description "Store Halfword" ]
 instruction sh : I = {
-    MEM( GPR(rs) + SignExtImm )[15..0] := GPR(rt)[15..0]
+    let loc = MEM( GPR(rs) + SignExtImm ) in
+    let val = GPR(rt) in
+        loc([15..0]) := val([15..0])
     PC := PC + 4
 }
 decoding =
@@ -435,7 +444,7 @@ syntax =
 { @lbu
 }
 
-[ description = "Store Word" ]
+[ description "Store Word" ]
 instruction sw : I = {
     MEM( GPR(rs) + SignExtImm ) := GPR(rt)
     PC := PC + 4
@@ -447,11 +456,11 @@ syntax =
 { @lbu
 }
 
-[ description = "Subtract" ]
+[ description "Subtract" ]
 instruction sub : R = {
     let lhs = GPR(rs) in
     let rhs = GPR(rt) in
-    let res = lhs {-} rhs in {
+    let res = lhs (-) rhs in {
         GPR(rd) := res.value
 	CSR(Overflow) := res.carry
     }
@@ -465,7 +474,7 @@ syntax =
 { @add
 }
 
-[ description = "Subtract Unsigned" ]
+[ description "Subtract Unsigned" ]
 instruction subu : R = {
     GPR(rd) := GPR(rs) - GPR(rt)
     PC := PC + 4
@@ -481,31 +490,35 @@ syntax =
 [ pseudo ]
 instruction move : R = abstract
 syntax =
-{ :: mnemonic rt "," rs
+{ :: mnemonic rt "," rs ;
 }
 expansion =
-{ :: @or rt "," rs "," 0 ;
+{ :: @or_ rt "," rs "," 0 ;
 }
 
+
+
+register instr : Word
 
 microprocessor R2000 : PC = {
-    GPR(0) := 0
     PC := 0x80001000 // 2147487744
+    GPR(0) := 0
+    instr := 0
 }
-cache : Word -> Word = {
-    MEM -> CMEM
+stage fetch = {
+    instr := MEM( PC )
 }
-fetch : Word = {
-    cache( PC )
+stage decode = {
+    decoding( instr, { @instruction } )
 }
-decode : Word -> { R, J, I } = {
-    @instruction::*
-}
-execute = {
-    @instruction::*
+stage execue = {
+    instruction( opcode, { @instruction } )
 }
 
-cache CMEM : Word -> Word = abstract
+
+cache CMEM : Word -> Word =
+{ MEM -> R2000
+}
 
 [ instruction ]
 cache IMEM : Word -> Word =
@@ -514,17 +527,17 @@ cache IMEM : Word -> Word =
 
 [ data ]
 cache DMEM : Word -> Word =
-{ CMEM <-> L2
+{ CMEM -> L2
 }
 
 cache L2 : Word -> Word =
-{ IMEM <-> DRAM
-, DMEM <-> DRAM
+{ IMEM -> DRAM
+, DMEM -> DRAM
 }
 
 [ physical ]
 memory DRAM : Binary'24 -> Word
 
 interconnect BUS : Address -> Word =
-{ L2 <-> DRAM
+{ L2 -> DRAM
 }
