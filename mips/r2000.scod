@@ -84,24 +84,24 @@ format J : Word =
 
 
 buffer JumpAddr : J -> Word =
-    { (PC + 4)[31:28], address, 2{0b0} }
+    [ (PC + 4)[31..28], address, 0b00 ]
 
 buffer BranchAddr : I -> Word =
-    { 14{immediate[15]}, immediate, 2{0b0} }
+    [ immediate[15].repeat(14), immediate, 0b00 ]
 
 buffer SignExtImm : I -> Word =
-    { 16{immediate[15]}, immediate }
+    [ immediate[15].repeat(16), immediate ]
 
 buffer ZeroExtImm : I -> Word =
-    { 16{0b0}, immediate }
+    [ 0x0000, immediate ]
 
 
-[ description = "Add" ]
+[ description "Add" ]
 instruction add : R = {
     let lhs = GPR(rs) in
     let rhs = GPR(rt) in
     let res = lhs (+) rhs in {
-    	GPR(rd) := res.value
+	GPR(rd) := res.value
 	CSR(Overflow) := res.carry
     }
     PC := PC + 4
@@ -247,7 +247,7 @@ syntax =
 
 [ description = "Load Byte Unsigned" ]
 instruction lbu : I = {
-    GPR(rt) := { 0x0000'00, MEM( GPR(rs) + SignExtImm )[7..0]  }
+    GPR(rt) := [ 0x0000'00, MEM( GPR(rs) + SignExtImm )[7..0] ]
     PC := PC + 4
 }
 decoding =
@@ -259,7 +259,7 @@ syntax =
 
 [ description = "Load Halfword Unsigned" ]
 instruction lhu : I = {
-    GPR(rt) := { 0x0000, MEM( GPR(rs) + SignExtImm )[15..0] }
+    GPR(rt) := [ 0x0000, MEM( GPR(rs) + SignExtImm )[15..0] ]
     PC := PC + 4
 }
 decoding =
@@ -372,8 +372,8 @@ syntax =
 
 [ description = "Set Less Than Unsigned" ]
 instruction sltu : R = {
-    let lhs = { 0b0, GPR(rs) } in
-    let rhs = { 0b0, GRP(rt) } in
+    let lhs = [ 0b0, GPR(rs) ] in
+    let rhs = [ 0b0, GRP(rt) ] in
         GPR(rd) := if lhs < rhs then 1 else 0
     PC := PC + 4
 }
@@ -484,7 +484,7 @@ syntax =
 { :: mnemonic rt "," rs
 }
 expansion =
-{ :: @or rt "," rs "," 0
+{ :: @or rt "," rs "," 0 ;
 }
 
 
@@ -492,31 +492,39 @@ microprocessor R2000 : PC = {
     GPR(0) := 0
     PC := 0x80001000 // 2147487744
 }
-fetching : Address -> Word = {
-    MEM( PC )
+cache : Word -> Word = {
+    MEM -> CMEM
 }
-decoding : Word -> { R, J, I } = {
+fetch : Word = {
+    cache( PC )
+}
+decode : Word -> { R, J, I } = {
     @instruction::*
 }
-executing = {
+execute = {
     @instruction::*
 }
 
+cache CMEM : Word -> Word = abstract
 
 [ instruction ]
 cache IMEM : Word -> Word =
-{ R2000 -> MEM
+{ CMEM -> L2
 }
 
 [ data ]
 cache DMEM : Word -> Word =
-{ MEM -> R2000
+{ CMEM <-> L2
+}
+
+cache L2 : Word -> Word =
+{ IMEM <-> DRAM
+, DMEM <-> DRAM
 }
 
 [ physical ]
 memory DRAM : Binary'24 -> Word
 
 interconnect BUS : Address -> Word =
-{ DMEM -> DRAM
-, IMEM -> DRAM
+{ L2 <-> DRAM
 }
