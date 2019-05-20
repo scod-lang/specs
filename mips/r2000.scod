@@ -512,7 +512,7 @@ stage fetch = {
 stage decode = {
     decoding( instr, { @instruction } )
 }
-stage execue = {
+stage execute = {
     instruction( opcode, { @instruction } )
 }
 
