@@ -3,6 +3,7 @@
 #   All rights reserved.
 # 
 #   Developed by: Philipp Paulweber
+#                 Emmanuel Pescosta
 #                 <https://github.com/scod-lang/specs>
 # 
 #   This file is part of specs.
