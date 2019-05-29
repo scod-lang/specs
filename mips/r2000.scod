@@ -276,7 +276,7 @@ syntax =
 
 [ description "Load Upper Immediate" ]
 instruction lui : I = {
-    GPR(rt) := { immediate, 0x0000 }
+    GPR(rt) := [ immediate, 0x0000 ]
     PC := PC + 4
 }
 decoding =
@@ -364,8 +364,8 @@ syntax =
 
 [ description "Set Less Than Immediate Unsigned" ]
 instruction sltiu : I = {
-    let lhs = { 0b0, GPR(rs) } in
-    let rhs = { 0b0, SignExtImm } in
+    let lhs = [ 0b0, GPR(rs) ] in
+    let rhs = [ 0b0, SignExtImm ] in
         GPR(rt) := if lhs < rhs then 1 else 0
     PC := PC + 4
 }
