@@ -22,10 +22,10 @@
 //  along with specs. If not, see <http://www.gnu.org/licenses/>.
 //
 
-// description "MIPS R2000"
-// see: "MIPS IV Instruction Set, Revision 3.2, September, 1995"
+// MIPS IV Instruction Set, Revision 3.2, September, 1995
 // see: https://en.wikipedia.org/wiki/R2000_(microprocessor)
 
+[ description "MIPS R2000" ]
 SCOD
 
 using Word = Binary'32
