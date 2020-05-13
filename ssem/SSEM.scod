@@ -1,0 +1,177 @@
+//
+//  Copyright (C) 2019-2020 SCOD Organization <https://scod-lang.org>
+//  All rights reserved.
+//
+//  Developed by: Philipp Paulweber
+//                Emmanuel Pescosta
+//                <https://github.com/scod-lang/specs>
+//
+//  This file is part of specs.
+//
+//  specs is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation, either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  specs is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with specs. If not, see <http://www.gnu.org/licenses/>.
+//
+
+// Small Scale Experimental Machine (SSEM)
+// see: https://en.wikipedia.org/wiki/Manchester_Small-Scale_Experimental_Machine
+
+[ description "Manchester Baby"]
+SCOD
+
+using Word = Binary'32
+
+using Address = Binary'32
+
+[ description "Main Store" ]
+memory Memory : Address -> Word
+
+register Accumulator : Word
+
+register PC : Word
+
+
+enumeration Flags =
+{ Halt
+}
+
+register CSR : Flags -> Boolean
+
+
+field opcode : Binary'3
+
+field S : Binary'16
+
+format Baby : Word =
+{ 16 -> opcode
+,  0 -> S
+}
+
+
+[ description "Jump to the instruction at the address obtained from the specified memory address S[a] (absolute unconditional jump" ]
+instruction JMP : Baby = {
+    let location = Memory( S ) in
+        PC := location
+}
+decoding =
+{ opcode : 0b000 // 0x00 // 0
+}
+syntax =
+{ :: mnemonic S ; // e.g. "JMP 0x1234"
+}
+
+
+[ description "Jump to the instruction at the program counter plus the relative value obtained from the specified memory address S[a] (relative unconditional jump)" ]
+instruction JRP : Baby = {
+    let location = PC + Memory( S ) in
+        PC := location
+}
+decoding =
+{ opcode : 0b100 // 0x04 // 4
+}
+syntax =
+{ @JMP // e.g. "JRP 0x1234"
+}
+
+
+[ description "Take the number from the specified memory address S, negate it, and load it into the accumulator" ]
+instruction LDN : Baby = {
+    let number = Memory( S ) in
+    let negatedNumber = -number in
+        Accumulator := negatedNumber
+}
+decoding =
+{ opcode : 0b010 // 0x02 // 2
+}
+syntax =
+{ @JMP // e.g. "LDN 0x1234"
+}
+
+
+[ description "Store the number in the accumulator to the specified memory address S" ]
+instruction STO : Baby = {
+    Memory( S ) := Accumulator
+}
+decoding =
+{ opcode : 0b110 // 0x06 // 6
+}
+syntax =
+{ @JMP // e.g. "STO 0x1234"
+}
+
+
+[ description "Subtract the number at the specified memory address S from the value in accumulator, and store the result in the accumulator" ]
+instruction SUB : Baby = {
+    let number = Memory( S ) in
+    let result = Accumulator - number in
+        Accumulator := result
+}
+decoding =
+{ opcode : 0b001 // 0x01 // 1
+}
+decoding = // alternative
+{ opcode : 0b101 // 0x05 // 5
+}
+syntax =
+{ @JMP // e.g. "SUB 0x1234"
+}
+
+
+[ description "Skip next instruction if the accumulator contains a negative value" ]
+instruction CMP : Baby = {
+    if Accumulator < 0 then
+        PC := PC + 2
+}
+decoding =
+{ opcode : 0b011 // 0x03 // 3
+}
+syntax =
+{ :: mnemonic ; // e.g. "CMP"
+}
+
+
+[ description "Stop" ]
+instruction STP : Baby = {
+    CSR( Halt ) := true
+}
+decoding =
+{ opcode : 0b111 // 0x07 // 7
+}
+syntax =
+{ @CMP // e.g. "STP"
+}
+
+
+register instr : Word
+
+microprocessor SSEM : PC = {
+    PC := 0
+    instr := 0
+}
+stage fetch = {
+    instr := Memory( PC )
+}
+stage decode = {
+    decoding( instr, { @instruction } )
+}
+stage execute = {
+    instruction( opcode, { @instruction } )
+}
+
+
+[ physical ]
+memory MainStore : Binary'5 -> Word // 1kB
+
+
+interconnect BUS : Address -> Word =
+{ Memory -> MainStore
+}
